@@ -18,5 +18,11 @@
     <ClCompile Include="Main.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="ln_Client.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ln_Server.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
