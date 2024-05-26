@@ -1,62 +1,102 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 
-#include<stdio.h>
-#include<stdlib.h>
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32");
+#pragma comment(lib, "ws2_32.lib")
 
-#define BUFSIZE 512
+#define SERVER_ADDR "127.0.0.1"
+#define PORT 50050
+#define BUFFER_SIZE 1024
 
-void err_quit(const char* msg) {
-	LPVOID IpMsgBuf;
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-		NULL, WSAGetLastError(),
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&IpMsgBuf, 0, NULL);
-	exit(-1);
+int SockFun();
 
+int main() {
+	char menu_choice;
+	while (1) {
+		system("cls");
+		printf("1. 소켓 통신 \n");
+		printf("2. 종료\n");
+		printf("입력 : ");
+		scanf_s("%c", &menu_choice, 1);
+
+		switch (menu_choice) {
+		case '1':
+			SockFun();
+			break;
+		case '2':
+			printf("종료중...\n");
+			return 0;
+		default:
+			printf("유효하지 않은 선택이에요 다시 시도하세요 \n");
+			break;
+		}
+	}
 }
 
-int main(int argc, char* argv[]) {
-	//원속 초기화
+int SockFun() {
 	WSADATA wsa;
-	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-		return -1;
-	//MessageBox(NULL, "원속 초기화 성공", "알림", MB_OK);
+	//클라이언트 소켓 선언
+	SOCKET client_socket;
+	struct sockaddr_in server;
+	char buffer[BUFFER_SIZE];
+	int recv_size;
 
-	//socket()
-	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock == INVALID_SOCKET) err_quit("socket()");
-	printf("소켓이 생성되었습니다.\n");
-	//MessageBox(NULL, "TCP 소켓성공", "알림", MB_OK);
+	//1 소켓 초기화
+	printf("소켓 초기화 중 .. \n");
+	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+		printf("실패 에러 코드 : %d\n", WSAGetLastError());
+		return 1;
+	}
+	printf("초기화 완료\n");
 
-	//connect()
-	SOCKADDR_IN serveraddr;
-	ZeroMemory(&serveraddr, sizeof(serveraddr));
-	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	serveraddr.sin_port = htons(9000);
+	//2. 소켓 생성
+	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+		printf("소켓 생성 실패 : %d\n", WSAGetLastError());
+		WSACleanup();
+		return 1;
+	}
 
-	connect(sock, (SOCKADDR*)&serveraddr, sizeof(serveraddr));
-	printf("connect 연결요청!!\n");
+	//3. 연결할 서버의 주소 선언
+	server.sin_family = AF_INET;
+	//server.sin_addr.s_addr = inet_addr(SERVER_ADDR);
+	server.sin_port = htons(PORT);
+	if (inet_pton(AF_INET, SERVER_ADDR, &server.sin_addr.s_addr) <= 0) {
+		printf("유효하지 않은 주소 \n");
+		closesocket(client_socket);
+		WSACleanup();
+		return 1;
+	}
 
-	//서버로 보낼 스트링 설정
-	char buf[BUFSIZE + 1];
-	sprintf(buf, "hello world!");
+	//4. 주소지 server에 연결
+	if (connect(client_socket, (struct sockaddr*)&server, sizeof(server)) < 0) {
+		printf("연결 실패 : %d\n", WSAGetLastError());
+		closesocket(client_socket);
+		WSACleanup();
+		return 1;
+	}
+	printf("서버 연결 성공\n");
 
-	//send()
-	send(sock, buf, strlen(buf), 0);
-	printf("메세지를 보냅니다.\n");
 
-	//closesocket()
-	closesocket(sock);
 
-	//원속 종료
+	//5. 데이터 전송
+	char message[BUFFER_SIZE];
+	while (1) {
+		fputs("메시지 입력(Q to quit) : ", stdout);
+		fgets(message, BUFFER_SIZE, stdin);
+
+		if (!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
+			break;
+
+		send(client_socket, message, (int)strlen(message), 0);
+		recv_size = recv(client_socket, message, BUFFER_SIZE - 1, 0);
+		message[recv_size] = 0;
+		printf("받은 메시지 : %s\n", message);
+	}
+
+	//소켓 종료
+	closesocket(client_socket);
 	WSACleanup();
+
+
 	return 0;
-
 }
-
-
